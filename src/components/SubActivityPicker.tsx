@@ -29,7 +29,7 @@ export default function SubActivityPicker({ subActivities, selectedIds, onChange
       {subActivities.map((sa) => {
         const selected = selectedIds.includes(sa.id);
         const isFull = sa.confirmed_count >= sa.max_capacity;
-        const isLocked = sa.confirmed_count >= sa.max_capacity + 2 && !selected;
+        const isLocked = sa.confirmed_count >= sa.max_capacity && !selected;
 
         return (
           <label
