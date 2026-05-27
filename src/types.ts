@@ -18,8 +18,8 @@ export interface SubActivity {
   id: number;
   theme_id: number;
   title: string;
-  start_time: string;
-  end_time: string | null;
+  start_date: string;
+  end_date: string | null;
   max_capacity: number;
 }
 

@@ -7,13 +7,11 @@ interface Props {
   idPrefix?: string;
 }
 
-function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString('zh-CN', {
+function formatDate(date: string) {
+  const d = new Date(date);
+  return d.toLocaleDateString('zh-CN', {
     month: 'numeric',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 }
 
@@ -30,33 +28,31 @@ export default function SubActivityPicker({ subActivities, selectedIds, onChange
     <div className="checkbox-group">
       {subActivities.map((sa) => {
         const selected = selectedIds.includes(sa.id);
-        const isFull = sa.confirmed_count >= sa.max_capacity && !selected;
+        const isFull = sa.confirmed_count >= sa.max_capacity;
+        const isLocked = sa.confirmed_count >= sa.max_capacity + 2 && !selected;
 
         return (
           <label
             key={sa.id}
-            className={`checkbox-item ${selected ? 'checkbox-item--selected' : ''} ${isFull ? 'checkbox-item--full' : ''}`}
+            className={`checkbox-item ${selected ? 'checkbox-item--selected' : ''} ${isLocked ? 'checkbox-item--full' : ''}`}
           >
             <input
               type="checkbox"
               checked={selected}
-              disabled={isFull}
+              disabled={isLocked}
               onChange={() => toggle(sa.id)}
               id={`${idPrefix}-${sa.id}`}
             />
             <span className="checkbox-label-content">
               <span className="title">{sa.title}</span>
               <span className="meta">
-                {formatTime(sa.start_time)}
-                {sa.end_time ? ` - ${formatTime(sa.end_time)}` : ''}
+                {formatDate(sa.start_date)}
+                {sa.end_date && sa.end_date !== sa.start_date ? ` - ${formatDate(sa.end_date)}` : ''}
               </span>
               {isFull ? (
-                <span className="badge badge--full">名额已满，进入候补</span>
+                <span className="badge badge--full">已报满（咨询客户经理增加名额）</span>
               ) : (
-                <span className="badge badge--available">
-                  已报 {sa.confirmed_count}/{sa.max_capacity}
-                  {sa.waitlist_count > 0 ? ` · 候补 ${sa.waitlist_count}` : ''}
-                </span>
+                <span className="badge badge--available">已报 {sa.confirmed_count}/{sa.max_capacity}</span>
               )}
             </span>
           </label>

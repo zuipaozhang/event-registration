@@ -77,12 +77,10 @@ export default function RegistrationForm({ themeId, themeTitle, subActivities, c
   }
 
   if (result) {
-    const hasWaitlist = result.records.some((r) => r.status === 'waitlist');
-
     return (
       <div>
         <div className="card result-card">
-          <div className="icon">{hasWaitlist ? '📋' : '✅'}</div>
+          <div className="icon">✅</div>
           <h2>报名提交成功</h2>
           <p style={{ color: 'var(--color-text-secondary)', margin: '8px 0 16px' }}>{themeTitle}</p>
 
@@ -95,23 +93,12 @@ export default function RegistrationForm({ themeId, themeTitle, subActivities, c
                     同行人
                   </span>
                 )}
-                <span
-                  className={`status-tag ${
-                    r.status === 'confirmed' ? 'status-tag--confirmed' : 'status-tag--waitlist'
-                  }`}
-                  style={{ marginLeft: 8 }}
-                >
-                  {r.status === 'confirmed' ? '报名成功' : '候补中'}
+                <span className="status-tag status-tag--confirmed" style={{ marginLeft: 8 }}>
+                  报名成功
                 </span>
               </div>
             ))}
           </div>
-
-          {hasWaitlist && (
-            <div className="card card--warn" style={{ marginTop: 16, textAlign: 'left', fontSize: '0.9rem' }}>
-              部分活动场次名额已满，已为您加入候补队列。如有名额释放，我们会及时通知。
-            </div>
-          )}
         </div>
 
         <div style={{ textAlign: 'center', marginTop: 12 }}>

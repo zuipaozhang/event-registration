@@ -44,11 +44,14 @@ export function useActivityTheme(slug: string, accessCode?: string | null) {
         }
 
         // 检查报名截止时间
-        if (themeData.registration_deadline && new Date(themeData.registration_deadline) < new Date()) {
-          setClosed(true);
-          setTheme(themeData);
-          setLoading(false);
-          return;
+        if (themeData.registration_deadline) {
+          const dl = new Date(themeData.registration_deadline + 'T23:59:59');
+          if (dl < new Date()) {
+            setClosed(true);
+            setTheme(themeData);
+            setLoading(false);
+            return;
+          }
         }
 
         setTheme(themeData);
@@ -57,7 +60,7 @@ export function useActivityTheme(slug: string, accessCode?: string | null) {
           .from('sub_activities')
           .select('*')
           .eq('theme_id', themeData.id)
-          .order('start_time', { ascending: true });
+          .order('start_date', { ascending: true });
 
         if (subErr) throw subErr;
 

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS activity_themes (
   event_date             date NOT NULL,
   slug                   text UNIQUE NOT NULL,
   access_code            text,
-  registration_deadline  timestamptz,
+  registration_deadline  date,
   is_active              boolean DEFAULT true,
   created_at             timestamptz DEFAULT now()
 );
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS sub_activities (
   id           serial PRIMARY KEY,
   theme_id     int NOT NULL REFERENCES activity_themes(id) ON DELETE CASCADE,
   title        text NOT NULL,
-  start_time   timestamptz NOT NULL,
-  end_time     timestamptz,
+  start_date  date NOT NULL,
+  end_date    date,
   max_capacity int DEFAULT 10,
   created_at   timestamptz DEFAULT now()
 );
@@ -249,7 +249,7 @@ INSERT INTO customer_managers (name, phone) VALUES
 INSERT INTO activity_themes (title, event_date, slug) VALUES
   ('2026年度技术开放日', '2026-06-15', 'tech-open-day-2026');
 
-INSERT INTO sub_activities (theme_id, title, start_time, end_time) VALUES
-  (1, 'AI 专场',    '2026-06-15 09:00:00+08', '2026-06-15 12:00:00+08'),
-  (1, '云计算专场',   '2026-06-15 13:30:00+08', '2026-06-15 17:00:00+08'),
-  (1, '前端技术专场', '2026-06-15 14:00:00+08', '2026-06-15 16:00:00+08');
+INSERT INTO sub_activities (theme_id, title, start_date, end_date) VALUES
+  (1, 'AI 专场',    '2026-06-15', '2026-06-15'),
+  (1, '云计算专场',   '2026-06-15', '2026-06-15'),
+  (1, '前端技术专场', '2026-06-15', '2026-06-15');

@@ -5,9 +5,9 @@
 
 -- 新增字段
 ALTER TABLE activity_themes ADD COLUMN IF NOT EXISTS access_code text;
-ALTER TABLE activity_themes ADD COLUMN IF NOT EXISTS registration_deadline timestamptz;
+ALTER TABLE activity_themes ADD COLUMN IF NOT EXISTS registration_deadline date;
 
--- 更新提交报名函数，加入截止时间校验
+-- 更新提交报名函数：容量逻辑（满额允许超额 2 人，超出拒绝）
 CREATE OR REPLACE FUNCTION submit_registration(
   p_name                text,
   p_phone               text,
@@ -19,21 +19,18 @@ CREATE OR REPLACE FUNCTION submit_registration(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_main_id          int;
-  v_status           text;
-  v_sub_id           int;
-  v_capacity         int;
-  v_confirmed        int;
-  v_sub_statuses     jsonb := '{}'::jsonb;
-  v_comp             jsonb;
-  v_comp_id          int;
-  v_comp_sub_ids     int[];
-  v_comp_sub_id      int;
-  v_comp_status      text;
-  v_comp_all_conf    boolean;
-  v_results          jsonb[] := '{}'::jsonb;
-  v_theme_active     boolean;
-  v_theme_deadline   timestamptz;
+  v_main_id              int;
+  v_sub_id               int;
+  v_capacity             int;
+  v_confirmed            int;
+  v_comp                 jsonb;
+  v_comp_id              int;
+  v_comp_sub_ids         int[];
+  v_comp_sub_id          int;
+  v_comp_allowed         boolean;
+  v_results              jsonb[] := '{}'::jsonb;
+  v_theme_active         boolean;
+  v_theme_deadline       timestamptz;
 BEGIN
   -- 校验活动是否有效
   SELECT is_active, registration_deadline INTO v_theme_active, v_theme_deadline
@@ -51,7 +48,7 @@ BEGIN
     RAISE EXCEPTION '报名已截止';
   END IF;
 
-  -- 逐个检查子活动名额
+  -- 逐个检查子活动名额（允许超额 2 人）
   FOREACH v_sub_id IN ARRAY p_sub_activity_ids
   LOOP
     SELECT max_capacity INTO v_capacity FROM sub_activities WHERE id = v_sub_id;
@@ -64,32 +61,26 @@ BEGIN
     WHERE sub_activity_ids @> ARRAY[v_sub_id]
       AND status = 'confirmed';
 
-    IF v_confirmed < v_capacity THEN
-      v_sub_statuses := v_sub_statuses || jsonb_build_object(v_sub_id::text, 'confirmed');
-    ELSE
-      v_sub_statuses := v_sub_statuses || jsonb_build_object(v_sub_id::text, 'waitlist');
+    IF v_confirmed >= v_capacity + 2 THEN
+      RAISE EXCEPTION '该场次已报满，请刷新页面查看最新场次';
     END IF;
   END LOOP;
 
-  IF v_sub_statuses::text LIKE '%confirmed%' THEN
-    v_status := 'confirmed';
-  ELSE
-    v_status := 'waitlist';
-  END IF;
-
+  -- 写入主报名人
   INSERT INTO registrations (name, phone, sub_activity_ids, customer_manager_id, theme_id, status)
-  VALUES (p_name, p_phone, p_sub_activity_ids, p_customer_manager_id, p_theme_id, v_status)
+  VALUES (p_name, p_phone, p_sub_activity_ids, p_customer_manager_id, p_theme_id, 'confirmed')
   RETURNING id INTO v_main_id;
 
   v_results := array_append(v_results, jsonb_build_object(
-    'id', v_main_id, 'name', p_name, 'status', v_status, 'role', 'main'
+    'id', v_main_id, 'name', p_name, 'status', 'confirmed', 'role', 'main'
   ));
 
+  -- 循环写入同行人
   IF p_companions IS NOT NULL AND jsonb_array_length(p_companions) > 0 THEN
     FOR v_comp IN SELECT * FROM jsonb_array_elements(p_companions)
     LOOP
       v_comp_sub_ids := ARRAY(SELECT jsonb_array_elements_text(v_comp->'sub_activity_ids')::int);
-      v_comp_all_conf := true;
+      v_comp_allowed := true;
 
       FOREACH v_comp_sub_id IN ARRAY v_comp_sub_ids
       LOOP
@@ -103,14 +94,14 @@ BEGIN
         WHERE sub_activity_ids @> ARRAY[v_comp_sub_id]
           AND status = 'confirmed';
 
-        IF v_confirmed < v_capacity THEN
-          NULL;
-        ELSE
-          v_comp_all_conf := false;
+        IF v_confirmed >= v_capacity + 2 THEN
+          v_comp_allowed := false;
         END IF;
       END LOOP;
 
-      v_comp_status := CASE WHEN v_comp_all_conf THEN 'confirmed' ELSE 'waitlist' END;
+      IF NOT v_comp_allowed THEN
+        RAISE EXCEPTION '该场次已报满，请刷新页面查看最新场次';
+      END IF;
 
       INSERT INTO registrations (name, phone, sub_activity_ids, parent_id, theme_id, status)
       VALUES (
@@ -119,12 +110,12 @@ BEGIN
         v_comp_sub_ids,
         v_main_id,
         p_theme_id,
-        v_comp_status
+        'confirmed'
       )
       RETURNING id INTO v_comp_id;
 
       v_results := array_append(v_results, jsonb_build_object(
-        'id', v_comp_id, 'name', v_comp->>'name', 'status', v_comp_status, 'role', 'companion'
+        'id', v_comp_id, 'name', v_comp->>'name', 'status', 'confirmed', 'role', 'companion'
       ));
     END LOOP;
   END IF;
